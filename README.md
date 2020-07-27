@@ -2,6 +2,8 @@
 
 **Task 1**
 
+(The comment in the file (source code) will show my approach to the problem)
+
 - Retrieve data from a JSON file
 
 - Take in consideration only item from July 2017
@@ -9,6 +11,8 @@
 - Sort the item by some defined parameters
 
 - Write out the result in a CSV file
+
+- The outputed file is stored in the same directory as the project
 
 **Task 2 and Task 3**
 
