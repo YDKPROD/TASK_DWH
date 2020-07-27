@@ -1,10 +1,13 @@
 package org.example.taskDwh;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import com.opencsv.CSVWriter;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -19,7 +22,7 @@ public class JsonTask {
     {
         //JSON parser object to parse read file
         JSONParser jsonParser = new JSONParser();
-
+        //Retrieve the file from the source
         try (FileReader reader = new FileReader("/home/emmanuel/Downloads/taskDwh/statuses.json"))
         {
             //Read JSON file
@@ -27,18 +30,14 @@ public class JsonTask {
             //Retrieve the JSON objects
             JSONObject data = (JSONObject) obj;
             //Retrieve the array "records" only
-            JSONArray data2 = (JSONArray) data.get("records");
-            //Integer i = 0;
-            //Empty list to append matched items
-            ArrayList found = new ArrayList();
-            List sorted = new ArrayList();
-            List<Sorting> list = new ArrayList<>();
+            JSONArray records = (JSONArray) data.get("records");
+            //Create an empty list that will be used to store
+            // the array Sorting which will be used to sort with the help of Stream
+            List to_sort = new ArrayList();
 
-
-
-            for(int i = 0; i<data2.size(); i++){
+            for(int i = 0; i<records.size(); i++){
                 //Get record one by one
-                JSONObject one_record = (JSONObject) data2.get(i);
+                JSONObject one_record = (JSONObject) records.get(i);
                 //Collect the date in string
                 String date = (String) one_record.get("kontakt_ts");
                 //Create a pattern for the date
@@ -48,36 +47,47 @@ public class JsonTask {
                 Date d1 = simpleDateFormat.parse(date);
                 //Date to compare to
                 Date d2 = simpleDateFormat.parse("2017-06-30 23:59:59");
+                //Check the matching rows
                 if (d1.compareTo(d2) > 0) {
                     Long kontakt_id = (Long) one_record.get("kontakt_id");
                     Long klient_id = (Long) one_record.get("klient_id");
-                    Long pracownik_id = (Long) one_record.get("klient_id");
+                    Long pracownik_id = (Long) one_record.get("pracownik_id");
                     String  status = (String) one_record.get("status");
-                    String kontakt_ts = (String) one_record.get("kontakt_ts");
-                    found.add(one_record);
-
-                    List <Sorting>new_out = createElement(kontakt_id, klient_id, pracownik_id, status, d1);
-                    //list.set(i, (Sorting) new_out);
-                    //System.out.println(new_out);
+                    //Add the columns that match in the list of items to sort (to_sort)
+                    to_sort.add(new Sorting(kontakt_id, klient_id, pracownik_id, status, d1));
                 }
                 }
+            //Compare first with the "klient_id"
+            Comparator <Sorting> comparator = Comparator.comparing(sorting -> sorting.klient_id);
+            //Then compare with the date (kontakt_ts)
+            comparator = comparator.thenComparing(Comparator.comparing(sorting -> sorting.kontakt_ts));
+            //Sequence that will be used while sorting items
+            Stream <Sorting> sortingStream = to_sort.stream().sorted(comparator);
+            //List of the items sorted already
+            List<Sorting> sortedOnes = sortingStream.collect(Collectors.toList());
 
+            //Create the CSV file for the output
+            CSVWriter writer = new CSVWriter(new FileWriter("/home/emmanuel/Documents/JavaProjects/taskDwh/sorted_file.csv"));
+            //Create the header for the CSV file
+            String header[] = {"kontakt_id", "klient_id", "pracownik_id", "status", "kontakt_ts"};
+            //Append the header to the file
+            writer.writeNext(header);
 
-            System.out.println(found);
-
-
-            //ArrayList result = found.stream().sorted(Comparator.comparing(Sorting::"Klient_id").thenComparing(Sorting::"kontakt_ts")).collect(Collectors.toList());
-            //data2.forEach((JSONObject) data2.get(i));
-
-            //System.out.println(data2.size());
-
-
-            //System.out.println(data2);
-             //Iterate over the object
-            //data.forEach( record -> parseRecordArray ((JSONArray) record));
-
-            //Iterate over employee array
-            //employeeList.forEach( emp -> parseEmployeeObject( (JSONObject) emp ) );
+            //Go through the sorted items
+            for (int i = 0; i < sortedOnes.size(); i++){
+                Long kontakt_id = (Long) sortedOnes.get(i).kontakt_id;
+                Long  klient_id = (Long) sortedOnes.get(i).klient_id;
+                Long pracownik_id = (Long) sortedOnes.get(i).pracownik_id;
+                String status = (String) sortedOnes.get(i).status;
+                Date kontakt_ts = (Date) sortedOnes.get(i).kontakt_ts;
+                DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                //Create the row to append
+                String data_to_copy [] = {Long.toString(kontakt_id), Long.toString(klient_id), Long.toString(pracownik_id), status, dateFormat.format(kontakt_ts)};
+                //Copy the row to the file
+                writer.writeNext(data_to_copy);
+        }
+            //close the file
+            writer.close();
 
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -89,15 +99,13 @@ public class JsonTask {
             e.printStackTrace();
         }
     }
-    private static List<Sorting> createElement(Long klient_id, Long b, Long c, String d, Date e) {
-        return Arrays.asList(new Sorting(klient_id, b, c, d, e));
-    }
-    private static class Sorting {
-        private Long kontakt_id;
-        private Long klient_id;
-        private Long pracownik_id;
-        private String status;
-        private Date kontakt_ts;
+    //Demo class that will be used to store items before sorting
+    public static class Sorting {
+        public Long kontakt_id;
+        public Long klient_id;
+        public Long pracownik_id;
+        public String status;
+        public Date kontakt_ts;
 
         public Sorting(Long kontakt_id, Long klient_id, Long pracownik_id, String status, Date kontakt_ts) {
             this.kontakt_id = kontakt_id;
